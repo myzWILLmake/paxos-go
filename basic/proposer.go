@@ -156,7 +156,7 @@ func (p *proposer) checkMajority() bool {
 		}
 	}
 
-	return cnt > p.getMajority()
+	return cnt >= p.getMajority()
 }
 
 func (p *proposer) getMajority() int {
