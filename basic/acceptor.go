@@ -23,15 +23,16 @@ func NewAcceptor(id int, nt *network) *acceptor {
 	a.nt = nt
 	a.proposers = []int{}
 	a.learners = []int{}
+
+	for i := 0; i < nt.proposerNum; i++ {
+		a.proposers = append(a.proposers, ProposerIdBase+i)
+	}
+
+	for i := 0; i < nt.learnerNum; i++ {
+		a.learners = append(a.learners, LearnerIdBase+i)
+	}
+
 	return a
-}
-
-func (a *acceptor) setProposers(proposers []int) {
-	a.proposers = proposers
-}
-
-func (a *acceptor) setLearners(learners []int) {
-	a.learners = learners
 }
 
 func (a *acceptor) recvMsgs() []*message {
@@ -69,7 +70,7 @@ func (a *acceptor) promise(msg *message) {
 }
 
 func (a *acceptor) accept(msg *message) {
-	if msg.pn == a.pn && msg.pn > a.apn {
+	if msg.pn >= a.pn && msg.pn > a.apn {
 
 		a.apn = msg.pn
 		a.apv = msg.pv

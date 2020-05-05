@@ -32,13 +32,11 @@ func NewProposer(id int, nt *network) *proposer {
 	p.phaseTime = time.Now()
 	p.prepared = false
 	p.requests = []int{}
-	return p
-}
 
-func (p *proposer) setAcceptors(acceptorIds []int) {
-	for _, id := range acceptorIds {
-		p.acceptors[id] = nil
+	for i := 0; i < nt.acceptorNum; i++ {
+		p.acceptors[i+AcceptorIdBase] = nil
 	}
+	return p
 }
 
 func (p *proposer) recvMsgs() []*message {
@@ -67,9 +65,6 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 				if !denied && msg.apn > p.maxapn {
 					p.reset()
 					p.maxapn = msg.apn
-					if len(p.requests) > 0 && msg.apv == p.requests[0] {
-						p.requests = p.requests[1:]
-					}
 				}
 			case Halt:
 				running = false
@@ -81,6 +76,8 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 			if denied {
 				time.Sleep(DeniedSleepTime * time.Millisecond)
 				denied = false
+			} else {
+				p.prepare()
 			}
 		}
 
@@ -88,9 +85,7 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 			if len(p.requests) > 0 {
 				p.prepare()
 			}
-		}
-
-		if p.prepared && p.checkMajority() {
+		} else if p.checkMajority() {
 			p.propose()
 		}
 	}
@@ -104,30 +99,25 @@ func (p *proposer) prepare() {
 		msg := NewPrePareMsg(p.id, aid, p.getProposeNum())
 		p.nt.send(msg)
 		cnt++
-
-		// if cnt >= p.getMajority() {
-		// 	break
-		// }
 	}
 	p.prepared = true
 }
 
 func (p *proposer) propose() {
 	if p.pv == 0 {
-		p.pv = p.requests[0]
+		if len(p.requests) > 0 {
+			p.pv = p.requests[0]
+			p.requests = p.requests[1:]
+		} else {
+			return
+		}
 	}
 
 	cnt := 0
-	for aid, msg := range p.acceptors {
-		if msg != nil {
-			pmsg := NewAcceptMsg(p.id, aid, p.pn, p.pv)
-			p.nt.send(pmsg)
-			cnt++
-
-			// if cnt >= p.getMajority() {
-			// 	break
-			// }
-		}
+	for aid := range p.acceptors {
+		pmsg := NewAcceptMsg(p.id, aid, p.pn, p.pv)
+		p.nt.send(pmsg)
+		cnt++
 	}
 }
 

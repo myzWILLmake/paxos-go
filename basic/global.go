@@ -9,9 +9,9 @@ const (
 
 	SeqShift = 32
 
-	MsgRecvTimeout  = 1
-	DeniedSleepTime = 3
-	PhaseTimeOut    = 10
+	MsgRecvTimeout  = 5
+	DeniedSleepTime = 300
+	PhaseTimeOut    = 1000
 )
 
-var MsgLossRate float64 = 0.5
+var MsgLossRate float64 = 0
