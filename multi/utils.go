@@ -94,7 +94,7 @@ func RestartOne(nt *network, id int, wg *sync.WaitGroup) {
 	nt.setStat(id, true)
 }
 
-func Run(ch chan string) {
+func Run(ch chan string, pWg *sync.WaitGroup) {
 	var wg sync.WaitGroup
 	var nt *network
 
@@ -146,10 +146,11 @@ func Run(ch chan string) {
 			case "exit":
 				fmt.Println("Exit...")
 				StopAll(nt)
+				running = false
 			}
 		}
 	}
 
 	wg.Wait()
-
+	pWg.Done()
 }
