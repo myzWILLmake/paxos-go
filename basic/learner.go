@@ -56,7 +56,7 @@ func (l *learner) getResult(msg *message) {
 	r.pn = msg.apn
 	r.pv = msg.apv
 	if l.results[r.seq] == nil {
-		fmt.Printf("%8d%8d%8d\n", r.seq, r.id, r.pv)
+		fmt.Println("Learner: seq", r.seq, "from", r.id, "value", r.pv)
 	}
 	l.results[r.seq] = r
 }

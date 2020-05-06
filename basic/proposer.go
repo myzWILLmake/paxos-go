@@ -62,8 +62,11 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 					denied = true
 				}
 			case Accepted:
-				if !denied && msg.apn > p.maxapn {
+				if !denied && p.pn == msg.apn {
 					p.reset()
+				}
+
+				if msg.apn > p.maxapn {
 					p.maxapn = msg.apn
 				}
 			case Halt:
