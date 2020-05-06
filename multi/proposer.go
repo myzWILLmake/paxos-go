@@ -1,35 +1,41 @@
 package multi
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 )
 
 type proposer struct {
 	id        int
+	leaderId  int
 	seq       int
+	round     int
 	maxapn    int
 	pn        int
 	pv        int
 	acceptors map[int]*message
 	nt        *network
 
-	phaseTime time.Time
-	prepared  bool
-	requests  []int
+	learderTime time.Time
+	prepared    bool
+	proposed    bool
+	requests    []int
 }
 
 func NewProposer(id int, nt *network) *proposer {
 	p := new(proposer)
 	p.id = id
+	p.leaderId = 0
 	p.seq = 0
+	p.round = 0
 	p.maxapn = 0
 	p.pn = 0
 	p.pv = 0
 	p.nt = nt
 	p.acceptors = map[int]*message{}
 
-	p.phaseTime = time.Now()
+	p.learderTime = time.Now()
 	p.prepared = false
 	p.requests = []int{}
 
@@ -51,39 +57,51 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 		for _, msg := range msgs {
 			switch msg.t {
 			case Request:
-				p.requests = append(p.requests, msg.pv)
+				if p.leaderId == 0 || p.leaderId == p.id {
+					p.requests = append(p.requests, msg.pv)
+				} else {
+					NewRequest(p.nt, p.leaderId, msg.pv)
+				}
 			case Promise:
-				if !denied && msg.pn == p.pn {
+				if !denied && msg.getPNSeq() == p.seq {
 					p.checkPromise(msg)
 				}
 			case Nack:
-				if !denied && msg.pn > p.pn {
+				if !denied && msg.getPNSeq() > p.seq {
 					p.seq = msg.getPNSeq()
 					denied = true
 				}
 			case Accepted:
-				if !denied && msg.apn > p.maxapn {
-					p.reset()
+				if !denied && msg.apn == p.pn {
+					p.reset(false)
+				}
+
+				if msg.apn > p.maxapn {
 					p.maxapn = msg.apn
+					leaderId := msg.getAPNId()
+					if p.leaderId != leaderId {
+						p.leaderId = leaderId
+						denied = true
+					}
 				}
 			case Halt:
 				running = false
 			}
 		}
 
-		if denied || p.isPhaseTimeout() {
-			p.reset()
-			if denied {
-				time.Sleep(DeniedSleepTime * time.Millisecond)
-				denied = false
-			}
+		if denied {
+			p.reset(false)
+			time.Sleep(DeniedSleepTime * time.Millisecond)
+			denied = false
 		}
 
-		if !p.prepared {
-			if len(p.requests) > 0 {
-				p.prepare()
-			}
-		} else if p.checkMajority() {
+		if p.isLearderTimeTimeout() {
+			p.reset(true)
+		}
+
+		if !p.prepared && p.leaderId == 0 {
+			p.prepare()
+		} else if p.leaderId == p.id || p.checkMajority() {
 			p.propose()
 		}
 	}
@@ -91,7 +109,7 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 }
 
 func (p *proposer) prepare() {
-	maxseq := p.maxapn >> SeqShift
+	maxseq := p.maxapn >> SeqShift >> RoundShift
 	if maxseq > p.seq {
 		p.seq = maxseq
 	}
@@ -106,15 +124,24 @@ func (p *proposer) prepare() {
 }
 
 func (p *proposer) propose() {
-	if p.pv == 0 {
-		if len(p.requests) > 0 {
-			p.pv = p.requests[0]
-			p.requests = p.requests[1:]
-		} else {
-			return
-		}
+	if p.proposed {
+		return
 	}
 
+	if p.pv == 0 {
+		if p.leaderId == p.id {
+			if len(p.requests) > 0 {
+				p.pv = p.requests[0]
+				p.requests = p.requests[1:]
+				p.round++
+			} else {
+				return
+			}
+		}
+	}
+	p.proposed = true
+
+	p.pn = p.getProposeNum()
 	cnt := 0
 	for aid := range p.acceptors {
 		pmsg := NewAcceptMsg(p.id, aid, p.pn, p.pv)
@@ -123,10 +150,11 @@ func (p *proposer) propose() {
 	}
 }
 
-func (p *proposer) isPhaseTimeout() bool {
+func (p *proposer) isLearderTimeTimeout() bool {
 	t := time.Now()
-	d := t.Sub(p.phaseTime)
-	return d.Milliseconds() > PhaseTimeOut
+	d := t.Sub(p.learderTime)
+	ms := d.Milliseconds() + rand.Int63n(500)
+	return ms > LeaderTimeOut
 }
 
 func (p *proposer) checkPromise(msg *message) {
@@ -156,19 +184,29 @@ func (p *proposer) getMajority() int {
 	return n/2 + 1
 }
 
+func (p *proposer) getSeq() int {
+	return p.seq<<RoundShift | p.round
+}
+
 func (p *proposer) getProposeNum() int {
-	p.pn = p.seq<<SeqShift | p.id
+	p.pn = p.getSeq()<<SeqShift | p.id
 	return p.pn
 }
 
-func (p *proposer) reset() {
+func (p *proposer) reset(newLeader bool) {
 	p.pn = 0
 	p.pv = 0
-	p.phaseTime = time.Now()
+	p.learderTime = time.Now()
 
 	for aid := range p.acceptors {
 		p.acceptors[aid] = nil
 	}
 
-	p.prepared = false
+	p.proposed = false
+
+	if newLeader {
+		p.round = 0
+		p.leaderId = 0
+		p.prepared = false
+	}
 }

@@ -56,7 +56,7 @@ func (l *learner) getResult(msg *message) {
 	r.pn = msg.apn
 	r.pv = msg.apv
 	if l.results[r.seq] == nil {
-		fmt.Println("Learner: seq", r.seq, "from", r.id, "value", r.pv)
+		fmt.Println("Learner: seq", r.seq, "proposerId", r.id, "value", r.pv)
 	}
 	l.results[r.seq] = r
 }

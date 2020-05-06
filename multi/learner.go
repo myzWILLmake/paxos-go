@@ -7,10 +7,11 @@ import (
 )
 
 type result struct {
-	pn  int
-	seq int
-	id  int
-	pv  int
+	pn    int
+	seq   int
+	round int
+	id    int
+	pv    int
 }
 
 type learner struct {
@@ -53,12 +54,14 @@ func (l *learner) getResult(msg *message) {
 	r := new(result)
 	r.id = msg.getAPNId()
 	r.seq = msg.getAPNSeq()
+	r.round = msg.getAPNRound()
 	r.pn = msg.apn
 	r.pv = msg.apv
-	if l.results[r.seq] == nil {
-		fmt.Printf("%8d%8d%8d\n", r.seq, r.id, r.pv)
+	seqround := r.seq<<RoundShift | r.round
+	if l.results[seqround] == nil {
+		fmt.Println("Learner: seq", r.seq, "round", r.round, "proposerId", r.id, "value", r.pv)
 	}
-	l.results[r.seq] = r
+	l.results[seqround] = r
 }
 
 func (l *learner) printResults() {

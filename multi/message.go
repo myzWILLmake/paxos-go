@@ -71,7 +71,11 @@ func NewHaltMsg(to int) message {
 }
 
 func (m message) getPNSeq() int {
-	return m.pn >> SeqShift
+	return m.pn >> SeqShift >> RoundShift
+}
+
+func (m message) getPNRound() int {
+	return (m.pn >> SeqShift) & (1<<RoundShift - 1)
 }
 
 func (m message) getPNId() int {
@@ -79,7 +83,11 @@ func (m message) getPNId() int {
 }
 
 func (m message) getAPNSeq() int {
-	return m.apn >> SeqShift
+	return m.apn >> SeqShift >> RoundShift
+}
+
+func (m message) getAPNRound() int {
+	return (m.apn >> SeqShift) & (1<<RoundShift - 1)
 }
 
 func (m message) getAPNId() int {

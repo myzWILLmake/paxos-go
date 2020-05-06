@@ -7,11 +7,12 @@ const (
 
 	ChannelLength = 2048
 
-	SeqShift = 32
+	SeqShift   = 32
+	RoundShift = 16
 
 	MsgRecvTimeout  = 5
 	DeniedSleepTime = 300
-	PhaseTimeOut    = 1000
+	LeaderTimeOut   = 10000
 )
 
 var MsgLossRate float64 = 0
