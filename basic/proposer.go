@@ -76,8 +76,6 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 			if denied {
 				time.Sleep(DeniedSleepTime * time.Millisecond)
 				denied = false
-			} else {
-				p.prepare()
 			}
 		}
 
@@ -93,6 +91,10 @@ func (p *proposer) run(wg *sync.WaitGroup) {
 }
 
 func (p *proposer) prepare() {
+	maxseq := p.maxapn >> SeqShift
+	if maxseq > p.seq {
+		p.seq = maxseq
+	}
 	p.seq++
 	cnt := 0
 	for aid := range p.acceptors {

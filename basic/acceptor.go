@@ -44,7 +44,6 @@ func (a *acceptor) run(wg *sync.WaitGroup) {
 	for running {
 		msgs := a.recvMsgs()
 		for _, msg := range msgs {
-			// fmt.Println(msg)
 			switch msg.t {
 			case Prepare:
 				a.promise(msg)
